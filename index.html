@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-<title>Sunset HDRI Scorecard — 하늘공원 & 선유교</title>
+<title>언제 노을이 예쁠까? v1.0 — 하늘공원 & 선유교</title>
 <style>
   :root{ --bg:#0e1016; --card:#161b23; --ink:#e9eef6; --muted:#a6b0c4; --accent:#3a7afe; }
   html,body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Arial,sans-serif;margin:0;padding:0}
@@ -44,7 +44,7 @@
   .great{background:rgba(30,142,62,0.15);color:#8de6a6;border:1px solid rgba(30,142,62,0.35)}
   .good{background:rgba(58,122,254,0.12);color:#a8c3ff;border:1px solid rgba(58,122,254,0.35)}
   .fair{background:rgba(176,127,0,0.18);color:#ffd27a;border:1px solid rgba(176,127,0,0.35)}
-  .poor{background:rgba(176,59,59,0.18);color:#ffb1b1;border:1px solid rgba(176,59,59,0.35)}
+  .poor{background:rgba(176,59,59,0.18);color:#ffb1b1;border:1px solid rgba(176,59,59,0,35)}
 
   /* 촬영 시간대 & 강수확률: 두 줄 고정 + 줄 내 개행 금지 */
   .sw{white-space:normal;line-height:1.3}
@@ -61,18 +61,14 @@
   th.info{cursor:pointer;position:relative}
   th.info::after{content:"ⓘ";font-size:10px;margin-left:6px;color:#9bb7ff}
 
-  /* 오버레이(모바일: 바텀시트, 데스크톱: 모달) */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  /* 오버레이(가운데 모달) */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50}
   .overlay.show{display:flex}
-  .sheet{background:var(--card);border:1px solid #242a36;border-radius:14px 14px 0 0;width:100%;max-height:75vh;overflow:auto;padding:12px 14px}
+  .sheet{background:var(--card);border:1px solid #242a36;border-radius:12px;width:calc(100% - 24px);max-width:560px;max-height:80vh;overflow:auto;padding:12px 14px;box-shadow:0 10px 40px rgba(0,0,0,0.4)}
   .sheet h3{margin:4px 0 8px;font-size:14px}
   .sheet .mini{font-size:12px;line-height:1.55;color:#c8d0e0}
   .sheet .close{position:sticky;top:0;float:right;margin:-6px -4px 0 0;background:transparent;border:1px solid #2b3140;color:#cfd7e6;border-radius:8px;padding:4px 8px}
-  @media(min-width:820px){
-    .sheet{max-width:560px;border-radius:12px}
-  }
 
-  /* 더 작은 화면 최적화 */
   @media(max-width:430px){
     h1{font-size:18px}
     th,td{font-size:12px;padding:7px 8px}
@@ -83,14 +79,15 @@
 </head>
 <body>
   <header>
-    <h1>Sunset HDRI Scorecard — 하늘공원 & 선유교</h1>
-    <p class="sub">일몰 전후(±1h) + <b>Sun Window</b> + <b>촬영 시간대</b> + <b>강수확률</b> · CSV(UTF‑8+BOM)</p>
+    <h1>언제 노을이 예쁠까? v1.0 — 하늘공원 & 선유교</h1>
+    <p class="sub"><b>구름의 양</b> + <b>대기질</b> + <b>구름의 차단</b> + <b>촬영 시간대</b> + <b>강수확률</b></p>
   </header>
 
   <div class="wrap">
     <div class="controls" style="margin-bottom:10px">
       <button id="refresh">지금 예보 새로고침</button>
-      <button id="dlcsv" class="ghost">CSV 저장</button>
+      <button id="dlcsv" class="ghost">CSV 저장(UTF‑8)</button>
+      <button id="dlexcel" class="ghost">엑셀 저장(.xls)</button>
       <button id="toggle" class="ghost">모바일 간편 보기</button>
       <span class="src">표준시대: <b>Asia/Seoul</b> · 예보일수: <b>5일</b></span>
     </div>
@@ -100,13 +97,10 @@
       <div class="card skeleton">예보 로딩 중…</div>
     </div>
 
-    <!-- 2) 측정치 안내 (간단 설명 + 자세한 설명은 헤더 터치로 오버레이) -->
+    <!-- 2) 측정치 안내(간략) -->
     <div class="card" style="margin-top:12px">
       <div class="note">
-        <b>측정치 안내(간략)</b> – 각 컬럼 헤더를 <b>터치/클릭</b>하면 자세한 설명이 오버레이로 뜹니다.
-        <div class="mini" style="margin-top:6px">
-          High/Mid/Low: 구름층 비율 · PM2.5: 미세먼지 · 시정: 가시거리 · T–Td: 기온–이슬점 · Sun Window: 서쪽 비차단율 · Clearing: 전선 후 가장자리 신호
-        </div>
+        <b>측정치 안내</b> – 컬럼 헤더를 <b>터치/클릭</b>하면 자세한 설명이 팝업으로 출력됩니다.
       </div>
     </div>
 
@@ -131,7 +125,7 @@
     </footer>
   </div>
 
-  <!-- 오버레이 -->
+  <!-- 모달 오버레이 -->
   <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="sheet">
       <button class="close" id="ov-close">닫기</button>
@@ -150,7 +144,6 @@ const WEDGE_RAYS = 3;
 const WEDGE_RADII_KM = [20, 40, 60];
 const SAMPLE_CONCURRENCY = 3;
 
-// 순서 고정: 하늘공원 → 선유교
 const LOCATIONS = [
   { name: "하늘공원", lat: 37.56764, lon: 126.88571, source: "월드컵공원(하늘공원) 좌표" },
   { name: "선유교",   lat: 37.54361, lon: 126.90000, source: "선유도–양화 보행교(중앙부 근방)" }
@@ -161,14 +154,11 @@ const HOURLY_FIELDS_WEDGE = "cloudcover_mid,cloudcover_low";
 const DAILY_FIELDS = "sunset";
 
 const panels = document.getElementById('panels');
-const diag = document.getElementById('diag');
-const DOW_FORMATTER = new Intl.DateTimeFormat('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' });
-
-// Overlay helpers
 const overlay = document.getElementById('overlay');
 const ovTitle = document.getElementById('ov-title');
 const ovBody = document.getElementById('ov-body');
 const ovClose = document.getElementById('ov-close');
+
 function showOverlay(title, html){
   ovTitle.textContent = title;
   ovBody.innerHTML = html;
@@ -180,30 +170,23 @@ ovClose.addEventListener('click', hideOverlay);
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideOverlay(); });
 
 const METRIC_INFO = {
-  "High": "<b>High</b> — 상층운 비율(%)입니다. 노을빛을 <i>받는 캔버스</i>가 되며 20–70%가 이상적입니다.",
-  "Mid": "<b>Mid</b> — 중층운 비율(%). 상층운과 함께 붉은 하이라이트를 받습니다.",
-  "Low": "<b>Low</b> — 저층운 비율(%). <u>서쪽 차단</u>의 주 원인이므로 많을수록 불리합니다.",
-  "PM25": "<b>PM2.5</b> — 미세먼지(µg/m³). 낮을수록 시정과 대비가 좋아지고 색이 또렷합니다.",
-  "Vis": "<b>시정</b> — 수평 가시거리(km). 10 km 이상이면 맑은 편입니다.",
-  "TTd": "<b>T–Td</b> — 기온–이슬점(°C). 0–2°C는 안개/박무/저층운 리스크, ≥3°C면 비교적 안전합니다.",
-  "SunAz": "<b>SunAz</b> — 일몰 태양 방위각(서=270°). 웨지 표본의 방향 기준입니다.",
-  "SunWin": "<b>Sun Window</b> — 일몰 방위 ±12°에서 <i>중·저층운 차단</i>을 보정해 산출한 <u>비차단율</u>(%). 높을수록 ‘빛길’이 열려 있습니다.",
+  "High%": "<b>High</b> — 상층운 비율(%)입니다. 노을빛을 <i>받는 캔버스</i>가 되며 20–70%가 이상적입니다.",
+  "Mid%": "<b>Mid</b> — 중층운 비율(%). 상층운과 함께 붉은 하이라이트를 받습니다.",
+  "Low%": "<b>Low</b> — 저층운 비율(%). <u>서쪽 차단</u>의 주 원인이므로 많을수록 불리합니다.",
+  "PM2.5": "<b>PM2.5</b> — 미세먼지(µg/m³). 낮을수록 시정과 대비가 좋아지고 색이 또렷합니다.",
+  "시정(km)": "<b>시정</b> — 수평 가시거리(km). 10 km 이상이면 맑은 편입니다.",
+  "T–Td(°C)": "<b>T–Td</b> — 기온–이슬점(°C). 0–2°C는 안개/박무/저층운 리스크, ≥3°C 비교적 안전합니다.",
+  "SunAz(°)": "<b>SunAz</b> — 일몰 태양 방위각(서=270°). 웨지 표본의 방향 기준입니다.",
+  "Sun Window(%)": "<b>Sun Window</b> — 일몰 방위 ±12°에서 중·저층운 차단을 보정해 산출한 <u>비차단율</u>(%). 높을수록 ‘빛길’이 열려 있습니다.",
   "Clearing": "<b>Clearing</b> — 일몰 3시간 전 대비 저층운 −20%p &amp; 중/상층운 ≥20% → 전선 후 가장자리(후면청천) 신호입니다."
 };
 
 function attachHeaderTooltips(tableEl){
-  const map = {
-    "High%":"High","Mid%":"Mid","Low%":"Low","PM2.5":"PM25",
-    "시정(km)":"Vis","T–Td(°C)":"TTd","SunAz(°)":"SunAz","Sun Window(%)":"SunWin","Clearing":"Clearing"
-  };
   tableEl.querySelectorAll('th').forEach(th=>{
-    const key = map[th.textContent.trim()];
-    if(key){
+    const key = th.innerText.trim();
+    if(METRIC_INFO[key]){
       th.classList.add('info');
-      th.addEventListener('click', ()=>{
-        const title = th.textContent.trim();
-        showOverlay(title, METRIC_INFO[key] || "정보 없음");
-      });
+      th.addEventListener('click', ()=> showOverlay(key, METRIC_INFO[key]));
     }
   });
 }
@@ -281,11 +264,10 @@ function fmtTime24KST(localISO){
   return d.toLocaleTimeString('sv-SE', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 function fmtDateCompactWithDow(dateStr){
-  // input 'YYYY-MM-DD' -> 'M.D (요일)'
   const d = new Date(dateStr + "T12:00:00+09:00");
   const m = d.getMonth()+1;
   const day = d.getDate();
-  const dow = DOW_FORMATTER.format(d);
+  const dow = d.toLocaleDateString('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' });
   return `${m}.${day} (${dow})`;
 }
 
@@ -354,7 +336,6 @@ function scoreOne(h, m, l, pm25, vis_m, t2m, td2m, clearing, sunWindowFrac){
   return {score:s, vis_km, ttd};
 }
 
-// fetch wrapper
 async function fetchJsonOrThrow(url){
   const r = await fetch(url);
   if(!r.ok){
@@ -412,12 +393,10 @@ function buildCard(loc){
     </div>
   `;
   panels.appendChild(el);
-  // 헤더 툴팁 연결
   attachHeaderTooltips(el.querySelector('table'));
   return el.querySelector('tbody');
 }
 
-// 선택 구간과 겹치는 시간 버킷을 기준으로 최대 강수확률 집계
 function maxProbBetweenHourly(timesISO, probs, startISO, endISO){
   if(!timesISO || !probs || !startISO || !endISO) return null;
   const t0 = parseKST(startISO).getTime();
@@ -496,7 +475,6 @@ async function fetchAndRender(){
         if(!isNaN(az)){ sunAz = clamp(az, 200, 320); }
       }
 
-      // 서쪽 차단 웨지 표본
       const half = WEDGE_SPREAD_DEG/2;
       const wedge = [];
       for(const R of WEDGE_RADII_KM){
@@ -531,7 +509,7 @@ async function fetchAndRender(){
       for(const r of sampleResults){
         if(!r || r.error) continue;
         const occ = clamp((0.6*r.midv + 0.4*r.lowv)/100, 0, 1);
-        const w = distWeight(r.s.R);
+        const w = Math.exp(-r.s.R/50);
         osum += occ * w;
         wsum += w;
         okCount++;
@@ -594,8 +572,6 @@ async function fetchAndRender(){
       allRows.push({
         location: loc.name, date: dateFmt, verdict: v.text, score: fmt(score),
         shooting_window: shootPlain,
-        precip_golden_max: (gProb==null? "" : Math.round(gProb)),
-        precip_red_max: (rProb==null? "" : Math.round(rProb)),
         high:h, mid:m, low:l, pm25:pm,
         visibility_km: vis_km, T_minus_Td: ttd, sunAz: Math.round(sunAz),
         sunWindow_percent: Math.round(sunWindow*100), clearing: clearing ? 1 : 0
@@ -603,35 +579,61 @@ async function fetchAndRender(){
     }
   }
 
-  // CSV export
-  const btn = document.getElementById('dlcsv');
-  btn.onclick = () => {
-    const header = ["location","date","verdict","score","shooting_window","precip_golden_max","precip_red_max","high","mid","low","pm25","visibility_km","T_minus_Td","sunAz","sunWindow_percent","clearing"];
-    const esc = (v) => {
-      if(v===undefined || v===null) return "";
-      const s = String(v);
-      return /[\",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    };
+  // CSV (UTF-8 BOM)
+  const header = ["location","date","verdict","score","shooting_window","high","mid","low","pm25","visibility_km","T_minus_Td","sunAz","sunWindow_percent","clearing"];
+  const escCSV = (v) => {
+    if(v===undefined || v===null) return "";
+    const s = String(v);
+    return /[\",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  document.getElementById('dlcsv').onclick = () => {
     const lines = [];
-    lines.push("sep=,");
-    lines.push(header.join(","));
-    for(const r of allRows){
-      lines.push(header.map(k => esc(r[k])).join(","));
-    }
+    lines.push("sep=,"); lines.push(header.join(","));
+    for(const r of allRows){ lines.push(header.map(k => escCSV(r[k])).join(",")); }
     const csvContent = "\uFEFF" + lines.join("\r\n");
-    const blob = new Blob([csvContent], {type: "text/csv;charset=utf-8;"});
+    const blob = new Blob([csvContent], {type: "text/csv;charset=utf-8"});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "sunset_scorecard.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const a = document.createElement('a'); a.href = url; a.download = "sunset_scorecard.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Excel (.xls via HTML table) — Korean safe
+  document.getElementById('dlexcel').onclick = () => {
+    // Build a minimal HTML Workbook
+    let html = '<html><head><meta charset="utf-8"><style>td{mso-number-format:"\\@";white-space:nowrap}</style></head><body><table border="1"><tr>';
+    for(const h of header){ html += '<th>'+h+'</th>'; } html += '</tr>';
+    const esc = (s) => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Reconstruct rows similar to CSV
+    const rows = document.querySelectorAll('#panels table tbody tr');
+    for(const tr of rows){
+      const tds = tr.querySelectorAll('td');
+      const row = [
+        tds[0]?.innerText, // date friendly form is fine
+        tds[1]?.innerText.trim(), // verdict pill text
+        tds[2]?.innerText.trim(), // score
+        tds[3]?.innerText.replace(/\\n/g,' ').trim(), // shooting
+        tds[4]?.innerText.replace(/\\n/g,' ').trim(), // rain
+        tds[5]?.innerText.trim(),
+        tds[6]?.innerText.trim(),
+        tds[7]?.innerText.trim(),
+        tds[8]?.innerText.trim(),
+        tds[9]?.innerText.trim(),
+        tds[10]?.innerText.trim(),
+        tds[11]?.innerText.trim(),
+        tds[12]?.innerText.trim(),
+        tds[13]?.innerText.trim()
+      ];
+      html += '<tr>' + row.map(v=>'<td>'+esc(v)+'</td>').join('') + '</tr>';
+    }
+    html += '</table></body></html>';
+    const blob = new Blob([html], {type: "application/vnd.ms-excel"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = "sunset_scorecard.xls"; a.click();
     URL.revokeObjectURL(url);
   };
 }
 
-// 모바일: 작은 화면이면 기본적으로 compact 모드 ON
+// 모바일 기본 compact
 if (window.matchMedia("(max-width: 430px)").matches) {
   document.body.classList.add('compact');
 }
@@ -646,7 +648,7 @@ document.getElementById('toggle').addEventListener('click', () => {
   document.body.classList.toggle('compact');
 });
 
-// 최초 로드
+// 초기 로드
 fetchAndRender().catch(err => {
   panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>';
 });
