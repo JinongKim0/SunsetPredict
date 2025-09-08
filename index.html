@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="icon" href="data:;base64,iVBORw0KGgo=">
+<title>Sunset HDRI Scorecard — 하늘공원 & 선유교</title>
+<style>
+  :root{ --bg:#0e1016; --card:#161b23; --ink:#e9eef6; --muted:#a6b0c4; --accent:#3a7afe; }
+  html,body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Arial,sans-serif;margin:0;padding:0}
+  header{padding:20px 16px;border-bottom:1px solid #232735;background:linear-gradient(180deg,rgba(58,122,254,0.08),transparent)}
+  h1{font-size:20px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:13px;margin:0}
+  .wrap{max-width:880px;margin:0 auto;padding:16px}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .card{background:var(--card);border:1px solid #242a36;border-radius:12px;overflow:hidden}
+  .card header{display:flex;align-items:center;justify-content:space-between;background:transparent;border:none;padding:14px 16px}
+  .loc{display:flex;gap:10px;align-items:center}
+  .badge{font-size:12px;border:1px solid #2b3140;border-radius:999px;padding:4px 8px;color:var(--muted)}
+  .src{color:var(--muted);font-size:12px;margin-left:8px}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{background:var(--accent);color:white;border:0;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid #2b3140;color:#cfd7e6}
+  .note{font-size:12px;color:var(--muted);padding:12px 16px;line-height:1.5}
+  a{color:#9bb7ff;text-decoration:none}
+  a:hover{text-decoration:underline}
+  footer{color:#8d97aa;font-size:12px;padding:16px 16px 40px}
+  .sp{opacity:.85}
+  .err{color:#ffb1b1}
+  .two-col{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:700px){.two-col{grid-template-columns:1fr 1fr}}
+  .mini{font-size:11.5px}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;background:#0c0f15;border:1px solid #2b3140;border-radius:6px;padding:2px 6px}
+  /* 표 */
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px 12px;border-top:1px solid #232735;font-size:13px;text-align:right;white-space:nowrap;vertical-align:top}
+  th{color:#cbd3e1;text-align:center;background:#192131;position:sticky;top:0;z-index:1}
+  td:first-child, th:first-child{text-align:left}
+  .score{font-weight:700}
+  .pill{padding:3px 8px;border-radius:999px;font-weight:700;font-size:11px;display:inline-block}
+  .great{background:rgba(30,142,62,0.15);color:#8de6a6;border:1px solid rgba(30,142,62,0.35)}
+  .good{background:rgba(58,122,254,0.12);color:#a8c3ff;border:1px solid rgba(58,122,254,0.35)}
+  .fair{background:rgba(176,127,0,0.18);color:#ffd27a;border:1px solid rgba(176,127,0,0.35)}
+  .poor{background:rgba(176,59,59,0.18);color:#ffb1b1;border:1px solid rgba(176,59,59,0.35)}
+  /* 촬영 시간대 & 강수확률: 두 줄 고정 + 줄 내 개행 금지 */
+  .sw{white-space:normal;line-height:1.35}
+  .nowrap{white-space:nowrap}
+  /* 모바일 간편 보기: 보조 컬럼 숨김 */
+  .col-optional{}
+  body.compact .col-optional{display:none}
+  /* 로딩 상태 */
+  .skeleton{padding:16px;color:#9aa3b6}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Sunset HDRI Scorecard — 하늘공원 & 선유교</h1>
+    <p class="sub">일몰 전후(±1h) 조건 + <b>서쪽 차단(Sun Window)</b> + <b>촬영 시간대(골든→레드)</b> + <b>강수확률</b> · CSV(UTF‑8+BOM)</p>
+  </header>
+
+  <div class="wrap">
+    <div class="controls" style="margin-bottom:12px">
+      <button id="refresh">지금 예보 새로고침</button>
+      <button id="dlcsv" class="ghost">CSV 저장 (UTF‑8+BOM)</button>
+      <button id="toggle" class="ghost">모바일 간편 보기</button>
+      <span class="src">표준시대: <b>Asia/Seoul</b> · 예보일수: <b>5일</b> · 웨지 표본: <b>9포인트</b></span>
+    </div>
+
+    <div id="diag" class="note" style="display:none"></div>
+
+    <div class="card">
+      <div class="note two-col">
+        <div>
+          <b>측정치 안내</b>
+          <ul class="mini">
+            <li><b>High/Mid/Low(%)</b>: 고·중·저층운 비율. <i>중·상층운</i>은 노을빛 캔버스, <i>저층운</i>은 서쪽 차단 요인.</li>
+            <li><b>PM2.5(µg/m³)</b>: 미세먼지 농도(투명도). 낮을수록 대비↑. (CAMS)</li>
+            <li><b>시정(km)</b>: 수평 가시거리. 10 km 이상이면 맑은 편.</li>
+            <li><b>T–Td(°C)</b>: 기온–이슬점 차. 작을수록 안개/저층운 리스크↑.</li>
+            <li><b>SunAz(°)</b>: 일몰 태양 방위각(서=270).</li>
+            <li><b>Sun Window(%)</b>: 일몰 방위 ±12°에 대한 <u>비차단율</u>(높을수록 좋음).</li>
+            <li><b>Clearing</b>: 일몰 3시간 전 대비 저층운 −20%p & 중/상층운 ≥20%.</li>
+            <li><b>촬영 시간대</b>: <span class="kbd">골든: +6°→0°</span>, <span class="kbd">레드: 0°→−6°</span>.</li>
+            <li><b>강수확률</b>: 골든/레드 각 구간의 시간별 예보 중 <b>최대값</b>(%)을 표시(점수 미반영).</li>
+          </ul>
+        </div>
+        <div>
+          <b>운용 팁</b>
+          <ul class="mini">
+            <li><b>골든 시작 20분 전</b> 세팅 완료.</li>
+            <li><b>레드 집중</b>: 일몰 −5분 ~ +20분.</li>
+            <li>유리난간 환경은 차광 또는 <b>2–3 m 폴</b> 권장.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" id="panels">
+      <div class="card skeleton">예보 로딩 중…</div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="note">
+        <b>점수 규칙(100점 만점)</b>
+        <ul style="margin:6px 0 0 16px;padding:0">
+          <li>중·상층운 평균 30–70%: +40 (15–85%: +20)</li>
+          <li>저층운 20–50%: −10 · &gt;50%: −25</li>
+          <li>PM2.5 ≤ 15: +20 · 15–35: +5 · &gt;35: −15</li>
+          <li>시정 ≥ 10 km: +15 (5–10 km: +5 · &lt;5 km: −10)</li>
+          <li>T–Td ≥ 3 °C: +10 (≤ 2 °C: −10)</li>
+          <li>Sun Window ≥ 70%: +10 · 50–70%: +0 · 30–50%: −10 · 15–30%: −20 · &lt;15%: −30</li>
+          <li>Clearing(후면청천): +10</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>
+      데이터: Open‑Meteo Weather & Air‑Quality(CAMS). 좌표: 하늘공원 37.56764, 126.88571 · 선유교 37.54361, 126.90000.
+    </footer>
+  </div>
+
+<script>
+const TZ = "Asia/Seoul";
+const TZ_OFFSET_HOURS = 9;
+const FORECAST_DAYS = 5;
+const AVG_WINDOW_H = 1;
+const WEDGE_SPREAD_DEG = 24;
+const WEDGE_RAYS = 3;
+const WEDGE_RADII_KM = [20, 40, 60];
+const SAMPLE_CONCURRENCY = 3;
+
+const LOCATIONS = [
+  { name: "하늘공원", lat: 37.56764, lon: 126.88571, source: "월드컵공원(하늘공원) 좌표" },
+  { name: "선유교",   lat: 37.54361, lon: 126.90000, source: "선유도–양화 보행교(중앙부 근방)" }
+];
+
+const HOURLY_FIELDS_MAIN = "cloudcover_high,cloudcover_mid,cloudcover_low,visibility,temperature_2m,dewpoint_2m,precipitation_probability";
+const HOURLY_FIELDS_WEDGE = "cloudcover_mid,cloudcover_low";
+const DAILY_FIELDS = "sunset";
+
+const panels = document.getElementById('panels');
+const diag = document.getElementById('diag');
+const DOW_FORMATTER = new Intl.DateTimeFormat('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' });
+
+function verdict(score){
+  if(score >= 70) return {text:"Great", cls:"great"};
+  if(score >= 50) return {text:"Good", cls:"good"};
+  if(score >= 30) return {text:"Fair", cls:"fair"};
+  return {text:"Low", cls:"poor"};
+}
+function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+function fmt(n, digits=0){ return (n==null || isNaN(n)) ? "—" : Number(n).toFixed(digits); }
+function toRad(d){ return d * Math.PI / 180; }
+function toDeg(r){ return r * 180 / Math.PI; }
+
+function dayOfYear(y, m, d){
+  return Math.floor((Date.UTC(y, m-1, d) - Date.UTC(y, 0, 0)) / 86400000);
+}
+function solarParams(y, mo, d, hh, mm, lonDeg, tzHours){
+  const N = dayOfYear(y, mo, d);
+  const fracHour = hh + mm/60;
+  const gamma = 2*Math.PI/365 * (N - 1 + (fracHour - 12)/24);
+  const eqTime = 229.18 * (0.000075 + 0.001868*Math.cos(gamma) - 0.032077*Math.sin(gamma) - 0.014615*Math.cos(2*gamma) - 0.040849*Math.sin(2*gamma));
+  const decl = 0.006918 - 0.399912*Math.cos(gamma) + 0.070257*Math.sin(gamma) - 0.006758*Math.cos(2*gamma) + 0.000907*Math.sin(2*gamma) - 0.002697*Math.cos(3*gamma) + 0.00148*Math.sin(3*gamma);
+  const timeOffset = eqTime + 4*lonDeg - 60*tzHours;
+  const tst = fracHour*60 + timeOffset;
+  const haDeg = (tst/4) - 180;
+  return {decl, ha: toRad(haDeg)};
+}
+function solarAzimuthDeg(localISO, latDeg, lonDeg, tzOffsetHours){
+  const m = localISO.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m) return NaN;
+  const y = +m[1], mo = +m[2], d = +m[3], hh = +m[4], mm = +m[5];
+  const {decl, ha} = solarParams(y, mo, d, hh, mm, lonDeg, tzOffsetHours);
+  const lat = toRad(latDeg);
+  let az = Math.atan2(Math.sin(ha), Math.cos(ha)*Math.sin(lat) - Math.tan(decl)*Math.cos(lat));
+  az = (toDeg(az) + 180) % 360;
+  return az;
+}
+function solarAltitudeDeg(localISO, latDeg, lonDeg, tzOffsetHours){
+  const m = localISO.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m) return NaN;
+  const y = +m[1], mo = +m[2], d = +m[3], hh = +m[4], mm = +m[5];
+  const {decl, ha} = solarParams(y, mo, d, hh, mm, lonDeg, tzOffsetHours);
+  const lat = toRad(latDeg);
+  const sinAlt = Math.sin(lat)*Math.sin(decl) + Math.cos(lat)*Math.cos(decl)*Math.cos(ha);
+  return toDeg(Math.asin(sinAlt));
+}
+function destPoint(latDeg, lonDeg, distanceKm, bearingDeg){
+  const R = 6371.0; const δ = distanceKm / R;
+  const φ1 = toRad(latDeg), λ1 = toRad(lonDeg), θ = toRad(bearingDeg);
+  const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1);
+  const sinδ = Math.sin(δ), cosδ = Math.cos(δ);
+  const sinφ2 = sinφ1*cosδ + cosφ1*sinδ*Math.cos(θ);
+  const φ2 = Math.asin(sinφ2);
+  const y = Math.sin(θ)*sinδ*cosφ1;
+  const x = cosδ - sinφ1*sinφ2;
+  const λ2 = λ1 + Math.atan2(y, x);
+  return { lat: toDeg(φ2), lon: (toDeg(λ2)+540)%360 - 180 };
+}
+
+// KST helpers
+function parseKST(localISO){ return new Date(localISO + "+09:00"); }
+function toKSTLocalISO(date){
+  const s = date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', hour12: false });
+  return s.replace(' ', 'T').slice(0, 16);
+}
+function kstAddMinutes(localISO, minutes){
+  const d = parseKST(localISO);
+  d.setMinutes(d.getMinutes() + minutes);
+  return toKSTLocalISO(d);
+}
+function fmtTime24KST(localISO){
+  const d = parseKST(localISO);
+  return d.toLocaleTimeString('sv-SE', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function fmtDateWithDow(dateStr){
+  const d = new Date(dateStr + "T12:00:00+09:00");
+  const ymd = d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+  const dow = DOW_FORMATTER.format(d);
+  return `${ymd} (${dow})`;
+}
+
+// Altitude crossing finder
+function findAltitudeCrossing(lat, lon, targetAlt, tStartISO, tEndISO, stepMin){
+  let t = tStartISO;
+  let prevAlt = solarAltitudeDeg(t, lat, lon, TZ_OFFSET_HOURS);
+  for(let m=stepMin; parseKST(t) < parseKST(tEndISO); m+=stepMin){
+    const t2 = kstAddMinutes(t, stepMin);
+    const alt2 = solarAltitudeDeg(t2, lat, lon, TZ_OFFSET_HOURS);
+    if((prevAlt - targetAlt) * (alt2 - targetAlt) <= 0){
+      const frac = (targetAlt - prevAlt) / ((alt2 - prevAlt) || 1e-6);
+      const dt = stepMin * frac;
+      return kstAddMinutes(t, dt);
+    }
+    t = t2;
+    prevAlt = alt2;
+  }
+  return null;
+}
+
+function distWeight(km){ return Math.exp(-km/50); }
+function indexNearSunset(hourlyTimesISO, sunsetISO){
+  if(!sunsetISO) return null;
+  const target = parseKST(sunsetISO).getTime();
+  let bestIdx = 0, bestDiff = Infinity;
+  for(let i=0;i<hourlyTimesISO.length;i++){
+    const t = parseKST(hourlyTimesISO[i]).getTime();
+    const d = Math.abs(t - target);
+    if(d < bestDiff){ bestIdx = i; bestDiff = d; }
+  }
+  return bestIdx;
+}
+function hasClearing(lowArr, midArr, highArr, idx){
+  if(idx==null || idx<3) return false;
+  const lowNow = lowArr[idx]; const lowPrev = lowArr[idx-3];
+  const midHighNow = Math.max(midArr[idx], highArr[idx]);
+  return (lowPrev - lowNow >= 20) && (midHighNow >= 20);
+}
+function avgWindow(arr, idx, width){
+  if(!arr || idx==null) return NaN;
+  let s=0,c=0;
+  for(let k=-width;k<=width;k++){
+    const i = idx+k;
+    if(i>=0 && i<arr.length && typeof arr[i]==='number'){ s+=arr[i]; c++; }
+  }
+  return c? (s/c): NaN;
+}
+function scoreOne(h, m, l, pm25, vis_m, t2m, td2m, clearing, sunWindowFrac){
+  let s = 0;
+  const midHighAvg = (h + m) / 2.0;
+  if(midHighAvg >= 30 && midHighAvg <= 70) s += 40;
+  else if(midHighAvg >= 15 && midHighAvg <= 85) s += 20;
+  if(l > 50) s -= 25; else if(l > 20) s -= 10;
+  if(pm25 <= 15) s += 20; else if(pm25 <= 35) s += 5; else s -= 15;
+  const vis_km = vis_m / 1000.0;
+  if(vis_km >= 10) s += 15; else if(vis_km >= 5) s += 5; else s -= 10;
+  const ttd = t2m - td2m;
+  if(ttd >= 3) s += 10; else if(ttd <= 2) s -= 10;
+  if(sunWindowFrac >= 0.70) s += 10;
+  else if(sunWindowFrac >= 0.50) s += 0;
+  else if(sunWindowFrac >= 0.30) s -= 10;
+  else if(sunWindowFrac >= 0.15) s -= 20;
+  else s -= 30;
+  if(clearing) s += 10;
+  return {score:s, vis_km, ttd};
+}
+
+async function fetchJsonOrThrow(url){
+  const r = await fetch(url);
+  if(!r.ok){
+    const t = await r.text().catch(()=> "");
+    throw new Error(`[${r.status}] ${url.pathname}${url.search}\n${t.slice(0,180)}`);
+  }
+  return r.json();
+}
+async function pMap(items, limit, mapper){
+  const ret = new Array(items.length);
+  let i=0;
+  async function next(){
+    if(i>=items.length) return;
+    const cur = i++;
+    try{ ret[cur]=await mapper(items[cur], cur); }
+    catch(e){ ret[cur]={error:e}; }
+    return next();
+  }
+  const tasks = [];
+  for(let k=0;k<Math.min(limit, items.length);k++) tasks.push(next());
+  await Promise.all(tasks);
+  return ret;
+}
+
+function buildCard(loc){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `
+    <header>
+      <div class="loc"><div class="badge">좌표 ${loc.lat.toFixed(5)}, ${loc.lon.toFixed(5)}</div> <span class="src">${loc.name}</span></div>
+      <div class="src">원본: ${loc.source}</div>
+    </header>
+    <div style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>판정</th>
+            <th class="score">점수</th>
+            <th>촬영 시간대</th>
+            <th>강수확률</th>
+            <th class="col-optional">High%</th>
+            <th class="col-optional">Mid%</th>
+            <th class="col-optional">Low%</th>
+            <th class="col-optional">PM2.5</th>
+            <th class="col-optional">시정(km)</th>
+            <th class="col-optional">T–Td(°C)</th>
+            <th class="col-optional">SunAz(°)</th>
+            <th class="col-optional">Sun&nbsp;Window(%)</th>
+            <th class="col-optional">Clearing</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  `;
+  panels.appendChild(el);
+  return el.querySelector('tbody');
+}
+
+function maxProbBetweenHourly(timesISO, probs, startISO, endISO){
+  if(!timesISO || !probs || !startISO || !endISO) return null;
+  const t0 = parseKST(startISO).getTime();
+  const t1 = parseKST(endISO).getTime();
+  let mx = null;
+  for(let i=0;i<timesISO.length;i++){
+    const ti = parseKST(timesISO[i]).getTime();
+    const te = (i+1 < timesISO.length) ? parseKST(timesISO[i+1]).getTime() : (ti + 3600000);
+    const overlap = Math.min(te, t1) > Math.max(ti, t0);
+    if(overlap){
+      const v = probs[i];
+      if(typeof v === 'number'){
+        if(mx===null || v>mx) mx = v;
+      }
+    }
+  }
+  return mx;
+}
+
+async function fetchAndRender(){
+  panels.innerHTML = '';
+  diag.style.display = 'none';
+  const diagLines = [];
+  const allRowsForCsv = [];
+
+  for(const loc of LOCATIONS){
+    const tbody = buildCard(loc);
+
+    const urlWx = new URL('https://api.open-meteo.com/v1/forecast');
+    urlWx.searchParams.set('latitude', loc.lat);
+    urlWx.searchParams.set('longitude', loc.lon);
+    urlWx.searchParams.set('hourly', HOURLY_FIELDS_MAIN);
+    urlWx.searchParams.set('daily', DAILY_FIELDS);
+    urlWx.searchParams.set('timezone', TZ);
+    urlWx.searchParams.set('forecast_days', FORECAST_DAYS);
+
+    const urlAQ = new URL('https://air-quality-api.open-meteo.com/v1/air-quality');
+    urlAQ.searchParams.set('latitude', loc.lat);
+    urlAQ.searchParams.set('longitude', loc.lon);
+    urlAQ.searchParams.set('hourly', 'pm2_5');
+    urlAQ.searchParams.set('timezone', TZ);
+    urlAQ.searchParams.set('forecast_days', FORECAST_DAYS);
+
+    let wx, aq;
+    try{
+      [wx, aq] = await Promise.all([fetchJsonOrThrow(urlWx), fetchJsonOrThrow(urlAQ)]);
+    }catch(e){
+      panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(e.message||e)+'</div></div>';
+      diagLines.push('메인 포인트 오류 @ '+loc.name+': '+(e.message||e));
+      diag.innerHTML = diagLines.map(x=>'<div class="err">'+x+'</div>').join('');
+      diag.style.display = 'block';
+      return;
+    }
+
+    const H = wx.hourly, D = wx.daily, AQ = aq.hourly;
+    const hourlyTimes = H.time;
+    const dailyTimes = D.time;
+    const sunsetTimes = D.sunset;
+
+    for(let d=0; d<dailyTimes.length; d++){
+      const sunsetISO = sunsetTimes ? sunsetTimes[d] : null;
+      const idx = indexNearSunset(hourlyTimes, sunsetISO);
+      let useIdx = idx;
+      if(useIdx == null){
+        const fallbackISO = dailyTimes[d] + "T18:30";
+        useIdx = indexNearSunset(hourlyTimes, fallbackISO);
+      }
+
+      const h = avgWindow(H.cloudcover_high, useIdx, AVG_WINDOW_H);
+      const m = avgWindow(H.cloudcover_mid, useIdx, AVG_WINDOW_H);
+      const l = avgWindow(H.cloudcover_low, useIdx, AVG_WINDOW_H);
+      const pm = avgWindow(AQ.pm2_5, useIdx, AVG_WINDOW_H);
+      const vis = avgWindow(H.visibility, useIdx, AVG_WINDOW_H);
+      const t2m = avgWindow(H.temperature_2m, useIdx, AVG_WINDOW_H);
+      const td  = avgWindow(H.dewpoint_2m, useIdx, AVG_WINDOW_H);
+      const clearing = hasClearing(H.cloudcover_low, H.cloudcover_mid, H.cloudcover_high, useIdx);
+
+      let sunAz = 270;
+      if(sunsetISO){
+        const az = solarAzimuthDeg(sunsetISO, loc.lat, loc.lon, TZ_OFFSET_HOURS);
+        if(!isNaN(az)){ sunAz = clamp(az, 200, 320); }
+      }
+
+      const half = WEDGE_SPREAD_DEG/2;
+      const wedge = [];
+      for(const R of WEDGE_RADII_KM){
+        for(let i=0;i<WEDGE_RAYS;i++){
+          const frac = (WEDGE_RAYS===1) ? 0.5 : i/(WEDGE_RAYS-1);
+          const bearing = sunAz - half + frac*WEDGE_SPREAD_DEG;
+          const dst = destPoint(loc.lat, loc.lon, R, bearing);
+          wedge.push({R, bearing, lat: dst.lat, lon: dst.lon});
+        }
+      }
+      const sampleResults = await pMap(wedge, SAMPLE_CONCURRENCY, async (s) => {
+        const u = new URL('https://api.open-meteo.com/v1/forecast');
+        u.searchParams.set('latitude', s.lat);
+        u.searchParams.set('longitude', s.lon);
+        u.searchParams.set('hourly', HOURLY_FIELDS_WEDGE);
+        u.searchParams.set('timezone', TZ);
+        u.searchParams.set('forecast_days', FORECAST_DAYS);
+        try{
+          const j = await fetchJsonOrThrow(u);
+          const tArr = j.hourly.time;
+          const idx2 = indexNearSunset(tArr, sunsetISO);
+          const ii = (idx2!=null)? idx2 : 0;
+          const midv = j.hourly.cloudcover_mid[ii];
+          const lowv = j.hourly.cloudcover_low[ii];
+          return {s, midv, lowv};
+        }catch(e){
+          return {s, error:true};
+        }
+      });
+
+      let wsum = 0, osum = 0, okCount = 0;
+      for(const r of sampleResults){
+        if(!r || r.error) continue;
+        const occ = clamp((0.6*r.midv + 0.4*r.lowv)/100, 0, 1);
+        const w = distWeight(r.s.R);
+        osum += occ * w;
+        wsum += w;
+        okCount++;
+      }
+      let sunWindow = 0.5;
+      if(okCount > 0 && wsum > 0){
+        const occAvg = osum/wsum;
+        sunWindow = clamp(1 - occAvg, 0, 1);
+      }
+
+      const {score, vis_km, ttd} = scoreOne(h, m, l, pm, vis, t2m, td, clearing, sunWindow);
+      const v = verdict(score);
+
+      let goldenStart=null, goldenEnd=null, redStart=null, redEnd=null, shootHtml="—", shootPlain="—";
+      let rainHtml="—", gProb=null, rProb=null;
+      if(sunsetISO){
+        const preStart = kstAddMinutes(sunsetISO, -180);
+        const postEnd  = kstAddMinutes(sunsetISO,  120);
+        goldenStart = findAltitudeCrossing(loc.lat, loc.lon, 6, preStart, sunsetISO, 2);
+        const sunsetAt0 = sunsetISO;
+        redEnd     = findAltitudeCrossing(loc.lat, loc.lon, -6, sunsetAt0, postEnd, 2);
+        goldenEnd  = sunsetAt0;
+        redStart   = sunsetAt0;
+        if(!goldenStart){ goldenStart = kstAddMinutes(sunsetISO, -60); }
+        if(!redEnd){ redEnd = kstAddMinutes(sunsetISO, 40); }
+        const g = `골든 ${fmtTime24KST(goldenStart)} - ${fmtTime24KST(goldenEnd)}`;
+        const r = `레드 ${fmtTime24KST(redStart)} - ${fmtTime24KST(redEnd)}`;
+        shootHtml = `<span class="nowrap">${g}</span><br><span class="nowrap">${r}</span>`;
+        shootPlain = `${g} / ${r}`;
+
+        gProb = maxProbBetweenHourly(hourlyTimes, H.precipitation_probability, goldenStart, goldenEnd);
+        rProb = maxProbBetweenHourly(hourlyTimes, H.precipitation_probability, redStart, redEnd);
+        const gtxt = (gProb==null? "—" : `${Math.round(gProb)}%`);
+        const rtxt = (rProb==null? "—" : `${Math.round(rProb)}%`);
+        rainHtml = `<span class="nowrap">골든 ${gtxt}</span><br><span class="nowrap">레드 ${rtxt}</span>`;
+      }
+
+      const dateFmt = fmtDateWithDow(dailyTimes[d]);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${dateFmt}</td>
+        <td><span class="pill ${v.cls}">${v.text}</span></td>
+        <td class="score">${fmt(score)}</td>
+        <td class="sw">${shootHtml}</td>
+        <td class="sw">${rainHtml}</td>
+        <td class="col-optional">${fmt(h)}</td>
+        <td class="col-optional">${fmt(m)}</td>
+        <td class="col-optional">${fmt(l)}</td>
+        <td class="col-optional">${fmt(pm,1)}</td>
+        <td class="col-optional">${fmt(vis_km,1)}</td>
+        <td class="col-optional">${fmt(ttd,1)}</td>
+        <td class="col-optional">${fmt(sunAz,0)}</td>
+        <td class="col-optional">${fmt(sunWindow*100,0)}</td>
+        <td class="col-optional">${clearing ? 'Yes' : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  document.getElementById('dlcsv').onclick = () => {
+    alert('CSV 내보내기는 v4.7 웹앱에서는 생략했습니다. 필요하면 알려 주세요!');
+  };
+
+  document.getElementById('toggle').onclick = () => {
+    document.body.classList.toggle('compact');
+  };
+}
+
+document.getElementById('refresh').addEventListener('click', () => {
+  panels.innerHTML = '<div class="card skeleton">예보 로딩 중…</div>';
+  fetchAndRender().catch(err => {
+    panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>';
+  });
+});
+
+fetchAndRender().catch(err => {
+  panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>';
+});
+</script>
+</body>
+</html>
