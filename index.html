@@ -1,3 +1,4 @@
+<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
@@ -5,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-<title>언제 노을이 예쁠까? v1.0 — 하늘공원 & 선유교</title>
+<title>언제 노을이 예쁠까? v1.1 — 하늘공원 & 선유교</title>
 <style>
   :root{ --bg:#0e1016; --card:#161b23; --ink:#e9eef6; --muted:#a6b0c4; --accent:#3a7afe; }
   html,body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Arial,sans-serif;margin:0;padding:0}
@@ -80,8 +81,8 @@
 </head>
 <body>
   <header>
-    <h1>언제 노을이 예쁠까? v1.0 — 하늘공원 & 선유교</h1>
-    <p class="sub"><b>구름의 양</b> + <b>대기질</b> + <b>구름의 차단</b> + <b>촬영 시간대</b> + <b>강수확률</b></p>
+    <h1>언제 노을이 예쁠까? v1.1 — 하늘공원 & 선유교</h1>
+    <p class="sub"><b>구간 평균</b> + <b>연속 점수</b> + <b>개선된 Sun Window</b> + <b>Clearing 판정 보강</b></p>
   </header>
 
   <div class="wrap">
@@ -101,22 +102,22 @@
     <!-- 2) 측정치 안내(간략) -->
     <div class="card" style="margin-top:12px">
       <div class="note">
-        <b>측정치 안내(간략)</b> – 컬럼 헤더를 <b>터치/클릭</b>하면 자세한 설명이 모달로 뜹니다.
+        <b>측정치 안내(간략)</b> – 컬럼 헤더를 <b>터치/클릭</b>하면 자세한 설명이 모달로 뜹니다. 본 버전(v1.1)은 모든 기상/대기질 지표를 <u>촬영 전체 구간(골든 시작→레드 종료)</u>의 <b>시간가중 평균</b>으로 산출합니다.
       </div>
     </div>
 
     <!-- 3) 점수 규칙 -->
     <div class="card" style="margin-top:12px">
       <div class="note">
-        <b>점수 규칙(100점 만점)</b>
+        <b>점수 규칙(연속 함수 · 100점 만점)</b>
         <ul style="margin:6px 0 0 16px;padding:0">
-          <li>중·상층운 평균 30–70%: +40 (15–85%: +20)</li>
-          <li>저층운 20–50%: −10 · &gt;50%: −25</li>
-          <li>PM2.5 ≤ 15: +20 · 15–35: +5 · &gt;35: −15</li>
-          <li>시정 ≥ 10 km: +15 (5–10 km: +5 · &lt;5 km: −10)</li>
-          <li>T–Td ≥ 3 °C: +10 (≤ 2 °C: −10)</li>
-          <li>Sun Window ≥ 70%: +10 · 50–70%: +0 · 30–50%: −10 · 15–30%: −20 · &lt;15%: −30</li>
-          <li>Clearing(후면청천): +10</li>
+          <li>중·상층운 평균: <i>50% 최적</i>, 20–80% 범위에서 삼각형 보상 → <b>0–40점</b> (50%에서 +40)</li>
+          <li>저층운: 0–50%는 <b>0→−10</b> 선형, 50–100%는 <b>−10→−25</b> 추가 선형 페널티</li>
+          <li>PM2.5: 0–15: <b>+20</b> → 15–35: <b>+20→+5</b> → 35–100: <b>+5→−15</b> (선형)</li>
+          <li>시정(km): 0–5: <b>−10→+5</b> → 5–10: <b>+5→+15</b> → ≥10: <b>+15</b></li>
+          <li>T–Td(°C): 0–3°C: <b>−10→+10</b> (선형), ≥3°C: <b>+10</b></li>
+          <li>Sun Window(%) = 1 − P(차단): <b>−30 + 40×(구간 평균 비차단율)</b></li>
+          <li>Clearing(후면청천): 일몰 <b>−4~−2h</b> 저층운 평균 대비 <b>−30~+30m</b> 주변 평균이 <b>≥20%p 감소</b> &amp; 중/상층운 ≥20% → <b>+10</b></li>
         </ul>
       </div>
     </div>
@@ -124,7 +125,7 @@
     <footer>
       데이터: Open‑Meteo & CAMS · 좌표: 하늘공원 37.56764, 126.88571 · 선유교 37.54361, 126.90000.
       <div class="mini" style="margin-top:6px;color:#a4aec1">
-        이 버전은 <b>.xlsx 정식 내보내기</b>를 사용하므로 Excel 경고가 발생하지 않습니다.
+        v1.1 변경: <b>구간 평균화</b>, <b>연속 점수</b>, <b>Sun Window 확률 결합</b>, <b>Clearing 판정 보강</b>.
       </div>
     </footer>
   </div>
@@ -139,12 +140,14 @@
   </div>
 
 <script>
+// =====================
+// 구성 상수
+// =====================
 const TZ = "Asia/Seoul";
 const TZ_OFFSET_HOURS = 9;
 const FORECAST_DAYS = 5;
-const AVG_WINDOW_H = 1;
-const WEDGE_SPREAD_DEG = 24;
-const WEDGE_RAYS = 3;
+const WEDGE_SPREAD_DEG = 24; // SunAz ±12°
+const WEDGE_RAYS = 3;        // 각 반경에서 샘플링할 방위 개수
 const WEDGE_RADII_KM = [20, 40, 60];
 const SAMPLE_CONCURRENCY = 3;
 
@@ -157,32 +160,31 @@ const HOURLY_FIELDS_MAIN = "cloudcover_high,cloudcover_mid,cloudcover_low,visibi
 const HOURLY_FIELDS_WEDGE = "cloudcover_mid,cloudcover_low";
 const DAILY_FIELDS = "sunset";
 
+// =====================
+// DOM 핸들러
+// =====================
 const panels = document.getElementById('panels');
 const overlay = document.getElementById('overlay');
 const ovTitle = document.getElementById('ov-title');
 const ovBody = document.getElementById('ov-body');
 const ovClose = document.getElementById('ov-close');
 
-function showOverlay(title, html){
-  ovTitle.textContent = title;
-  ovBody.innerHTML = html;
-  overlay.classList.add('show'); overlay.setAttribute('aria-hidden', 'false');
-}
+function showOverlay(title, html){ ovTitle.textContent = title; ovBody.innerHTML = html; overlay.classList.add('show'); overlay.setAttribute('aria-hidden', 'false'); }
 function hideOverlay(){ overlay.classList.remove('show'); overlay.setAttribute('aria-hidden', 'true'); }
 overlay.addEventListener('click', (e)=>{ if(e.target===overlay) hideOverlay(); });
 ovClose.addEventListener('click', hideOverlay);
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideOverlay(); });
 
 const METRIC_INFO = {
-  "High%": "<b>High</b> — 상층운 비율(%)입니다. 노을빛을 <i>받는 캔버스</i>가 되며 20–70%가 이상적입니다.",
-  "Mid%": "<b>Mid</b> — 중층운 비율(%). 상층운과 함께 붉은 하이라이트를 받습니다.",
-  "Low%": "<b>Low</b> — 저층운 비율(%). <u>서쪽 차단</u>의 주 원인이므로 많을수록 불리합니다.",
-  "PM2.5": "<b>PM2.5</b> — 미세먼지(µg/m³). 낮을수록 시정과 대비가 좋아지고 색이 또렷합니다.",
-  "시정(km)": "<b>시정</b> — 수평 가시거리(km). 10 km 이상이면 맑은 편입니다.",
-  "T–Td(°C)": "<b>T–Td</b> — 기온–이슬점(°C). 0–2°C는 안개/박무/저층운 리스크, ≥3°C 비교적 안전합니다.",
-  "SunAz(°)": "<b>SunAz</b> — 일몰 태양 방위각(서=270°). 웨지 표본의 방향 기준입니다.",
-  "Sun Window(%)": "<b>Sun Window</b> — 일몰 방위 ±12°에서 중·저층운 차단을 보정해 산출한 <u>비차단율</u>(%). 높을수록 ‘빛길’이 열려 있습니다.",
-  "Clearing": "<b>Clearing</b> — 일몰 3시간 전 대비 저층운 −20%p &amp; 중/상층운 ≥20% → 전선 후 가장자리(후면청천) 신호입니다."
+  "High%": "<b>High</b> — 상층운 비율(%)의 <u>촬영 구간 평균</u>입니다.",
+  "Mid%": "<b>Mid</b> — 중층운 비율(%), <u>촬영 구간 평균</u>입니다.",
+  "Low%": "<b>Low</b> — 저층운 비율(%), <u>촬영 구간 평균</u>. 서쪽 차단에 가장 민감합니다.",
+  "PM2.5": "<b>PM2.5</b> — 미세먼지(µg/m³) <u>촬영 구간 평균</u>. 낮을수록 대비/색 재현이 좋습니다.",
+  "시정(km)": "<b>시정</b> — 수평 가시거리(km) <u>촬영 구간 평균</u>입니다.",
+  "T–Td(°C)": "<b>T–Td</b> — 기온–이슬점(°C) <u>촬영 구간 평균</u>. 0–2°C는 박무/저층운 리스크, ≥3°C 안전권.",
+  "SunAz(°)": "<b>SunAz</b> — 일몰 시 태양 방위각(서=270°)입니다. Sun Window 샘플링의 기준 방향입니다.",
+  "Sun Window(%)": "<b>Sun Window</b> — 일몰 방위 ±12° 扇形에서 중·저층운의 <u>구간 평균 차단 확률</u>을 결합(\nP(차단)=1−(1−Mid)^0.6×(1−Low)^0.4\n)하여 산출한 <u>비차단율</u>(%). 높을수록 ‘빛길’이 열려 있습니다.",
+  "Clearing": "<b>Clearing</b> — 일몰 4~2시간 전 대비 일몰 ±30분 동안 저층운이 ≥20%p 감소하고 동시에 중/상층운이 ≥20%이면 전선 후 가장자리(후면청천) 신호로 판단합니다."
 };
 
 function attachHeaderTooltips(tableEl){
@@ -195,20 +197,15 @@ function attachHeaderTooltips(tableEl){
   });
 }
 
-function verdict(score){
-  if(score >= 70) return {text:"Great", cls:"great"};
-  if(score >= 50) return {text:"Good", cls:"good"};
-  if(score >= 30) return {text:"Fair", cls:"fair"};
-  return {text:"Low", cls:"poor"};
-}
+// =====================
+// 수학 유틸
+// =====================
 function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
 function fmt(n, digits=0){ return (n==null || isNaN(n)) ? "—" : Number(n).toFixed(digits); }
 function toRad(d){ return d * Math.PI / 180; }
 function toDeg(r){ return r * 180 / Math.PI; }
 
-function dayOfYear(y, m, d){
-  return Math.floor((Date.UTC(y, m-1, d) - Date.UTC(y, 0, 0)) / 86400000);
-}
+function dayOfYear(y, m, d){ return Math.floor((Date.UTC(y, m-1, d) - Date.UTC(y, 0, 0)) / 86400000); }
 function solarParams(y, mo, d, hh, mm, lonDeg, tzHours){
   const N = dayOfYear(y, mo, d);
   const fracHour = hh + mm/60;
@@ -252,28 +249,14 @@ function destPoint(latDeg, lonDeg, distanceKm, bearingDeg){
   return { lat: toDeg(φ2), lon: (toDeg(λ2)+540)%360 - 180 };
 }
 
-// KST helpers
+// =====================
+// 시간 & 타임존 유틸(KST)
+// =====================
 function parseKST(localISO){ return new Date(localISO + "+09:00"); }
-function toKSTLocalISO(date){
-  const s = date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', hour12: false });
-  return s.replace(' ', 'T').slice(0, 16);
-}
-function kstAddMinutes(localISO, minutes){
-  const d = parseKST(localISO);
-  d.setMinutes(d.getMinutes() + minutes);
-  return toKSTLocalISO(d);
-}
-function fmtTime24KST(localISO){
-  const d = parseKST(localISO);
-  return d.toLocaleTimeString('sv-SE', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
-}
-function fmtDateCompactWithDow(dateStr){
-  const d = new Date(dateStr + "T12:00:00+09:00");
-  const m = d.getMonth()+1;
-  const day = d.getDate();
-  const dow = d.toLocaleDateString('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' });
-  return `${m}.${day} (${dow})`;
-}
+function toKSTLocalISO(date){ const s = date.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', hour12: false }); return s.replace(' ', 'T').slice(0, 16); }
+function kstAddMinutes(localISO, minutes){ const d = parseKST(localISO); d.setMinutes(d.getMinutes() + minutes); return toKSTLocalISO(d); }
+function fmtTime24KST(localISO){ const d = parseKST(localISO); return d.toLocaleTimeString('sv-SE', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }); }
+function fmtDateCompactWithDow(dateStr){ const d = new Date(dateStr + "T12:00:00+09:00"); const m = d.getMonth()+1; const day = d.getDate(); const dow = d.toLocaleDateString('ko-KR', { weekday: 'short', timeZone: 'Asia/Seoul' }); return `${m}.${day} (${dow})`; }
 
 // Altitude crossing finder
 function findAltitudeCrossing(lat, lon, targetAlt, tStartISO, tEndISO, stepMin){
@@ -287,13 +270,35 @@ function findAltitudeCrossing(lat, lon, targetAlt, tStartISO, tEndISO, stepMin){
       const dt = stepMin * frac;
       return kstAddMinutes(t, dt);
     }
-    t = t2;
-    prevAlt = alt2;
+    t = t2; prevAlt = alt2;
   }
   return null;
 }
 
+// 가중 평균(시간 겹침 비율)
+function avgOverWindow(timesISO, values, startISO, endISO){
+  if(!timesISO || !values || !startISO || !endISO) return NaN;
+  const t0 = parseKST(startISO).getTime();
+  const t1 = parseKST(endISO).getTime();
+  if(!(t1 > t0)) return NaN;
+  let s=0, w=0;
+  for(let i=0;i<timesISO.length;i++){
+    const a = parseKST(timesISO[i]).getTime();
+    const b = (i+1<timesISO.length) ? parseKST(timesISO[i+1]).getTime() : a+3600000; // 1h
+    const overlap = Math.max(0, Math.min(b,t1) - Math.max(a,t0));
+    if(overlap>0){
+      const v = values[i];
+      if(typeof v === 'number' && !isNaN(v)){
+        s += v * overlap; w += overlap;
+      }
+    }
+  }
+  return w ? s/w : NaN;
+}
+
 function distWeight(km){ return Math.exp(-km/50); }
+
+// 가장 가까운 시간 인덱스(여전히 일부 용도에서 사용)
 function indexNearSunset(hourlyTimesISO, sunsetISO){
   if(!sunsetISO) return null;
   const target = parseKST(sunsetISO).getTime();
@@ -305,47 +310,85 @@ function indexNearSunset(hourlyTimesISO, sunsetISO){
   }
   return bestIdx;
 }
-function hasClearing(lowArr, midArr, highArr, idx){
-  if(idx==null || idx<3) return false;
-  const lowNow = lowArr[idx]; const lowPrev = lowArr[idx-3];
-  const midHighNow = Math.max(midArr[idx], highArr[idx]);
-  return (lowPrev - lowNow >= 20) && (midHighNow >= 20);
-}
-function avgWindow(arr, idx, width){
-  if(!arr || idx==null) return NaN;
-  let s=0,c=0;
-  for(let k=-width;k<=width;k++){
-    const i = idx+k;
-    if(i>=0 && i<arr.length && typeof arr[i]==='number'){ s+=arr[i]; c++; }
-  }
-  return c? (s/c): NaN;
-}
-function scoreOne(h, m, l, pm25, vis_m, t2m, td2m, clearing, sunWindowFrac){
-  let s = 0;
-  const midHighAvg = (h + m) / 2.0;
-  if(midHighAvg >= 30 && midHighAvg <= 70) s += 40;
-  else if(midHighAvg >= 15 && midHighAvg <= 85) s += 20;
-  if(l > 50) s -= 25; else if(l > 20) s -= 10;
-  if(pm25 <= 15) s += 20; else if(pm25 <= 35) s += 5; else s -= 15;
-  const vis_km = vis_m / 1000.0;
-  if(vis_km >= 10) s += 15; else if(vis_km >= 5) s += 5; else s -= 10;
-  const ttd = t2m - td2m;
-  if(ttd >= 3) s += 10; else if(ttd <= 2) s -= 10;
-  if(sunWindowFrac >= 0.70) s += 10;
-  else if(sunWindowFrac >= 0.50) s += 0;
-  else if(sunWindowFrac >= 0.30) s -= 10;
-  else if(sunWindowFrac >= 0.15) s -= 20;
-  else s -= 30;
-  if(clearing) s += 10;
-  return {score:s, vis_km, ttd};
+
+// Clearing(후면청천) 판정(구간 평균 기반)
+function computeClearing(H, sunsetISO){
+  const prevStart = kstAddMinutes(sunsetISO, -240); // -4h
+  const prevEnd   = kstAddMinutes(sunsetISO, -120); // -2h
+  const nowStart  = kstAddMinutes(sunsetISO, -30);  // -0.5h
+  const nowEnd    = kstAddMinutes(sunsetISO,  30);  // +0.5h
+  const lowPrev = avgOverWindow(H.time, H.cloudcover_low, prevStart, prevEnd);
+  const lowNow  = avgOverWindow(H.time, H.cloudcover_low, nowStart, nowEnd);
+  const midNow  = avgOverWindow(H.time, H.cloudcover_mid, nowStart, nowEnd);
+  const highNow = avgOverWindow(H.time, H.cloudcover_high, nowStart, nowEnd);
+  if([lowPrev, lowNow, midNow, highNow].some(v=>isNaN(v))) return false;
+  const drop = lowPrev - lowNow; // %p
+  const midHighNow = Math.max(midNow, highNow);
+  return (drop >= 20) && (midHighNow >= 20);
 }
 
+// =====================
+// 점수(연속 함수)
+// =====================
+function scoreCloudMidHigh(mid, high){
+  const mh = (mid + high) / 2; // %
+  // 50%에서 최대(+40), 20~80% 범위에서 선형으로 0까지 감소
+  const delta = Math.abs(mh - 50);
+  const norm = clamp(1 - delta/30, 0, 1); // 20↔80 사이에서 0~1
+  return 40 * norm;
+}
+function scoreLowPenalty(low){
+  // 0~50: 0→−10, 50~100: −10→−25
+  if(low <= 50) return -10 * (low/50);
+  const extra = (low-50)/50; // 0~1
+  return -10 - 15*extra; // -10 ~ -25
+}
+function scorePM25(pm){
+  if(pm <= 15) return 20 * (1 - pm/15) + 0; // 사실상 +20에 가깝게, 아래와 연속성 유지 위해 재정의
+  if(pm <= 35){
+    const t = (pm-15)/20; // 0~1
+    return 20 + (5-20)*t; // +20 → +5
+  }
+  // 35~100: +5 → -15
+  const t = clamp((pm-35)/(100-35), 0, 1);
+  return 5 + (-15-5)*t;
+}
+function scoreVisibilityKm(vis_km){
+  if(vis_km <= 5){
+    const t = clamp(vis_km/5, 0, 1); // 0→5km
+    return -10 + (5 - (-10))*t; // -10 → +5
+  }
+  if(vis_km <= 10){
+    const t = (vis_km-5)/5; // 0→1
+    return 5 + (15-5)*t; // +5 → +15
+  }
+  return 15;
+}
+function scoreTTD(ttd){
+  if(ttd <= 0) return -10; // 매우 습함
+  if(ttd >= 3) return 10;
+  const t = ttd/3; // 0→1
+  return -10 + (10 - (-10))*t; // -10 → +10 선형
+}
+function scoreSunWindow(frac){ // 0~1 (비차단율)
+  return -30 + 40 * clamp(frac, 0, 1);
+}
+
+function verdict(score){
+  if(score >= 70) return {text:"Great", cls:"great"};
+  if(score >= 50) return {text:"Good", cls:"good"};
+  if(score >= 30) return {text:"Fair", cls:"fair"};
+  return {text:"Low", cls:"poor"};
+}
+
+function toContribRowObj(v){ const o={}; Object.keys(v).forEach(k=>o[`s_${k}`]=Math.round(v[k])); return o; }
+
+// =====================
+// 데이터 패치 헬퍼
+// =====================
 async function fetchJsonOrThrow(url){
   const r = await fetch(url);
-  if(!r.ok){
-    const t = await r.text().catch(()=> "");
-    throw new Error(`[${r.status}] ${url.pathname}${url.search}\n${t.slice(0,180)}`);
-  }
+  if(!r.ok){ const t = await r.text().catch(()=>""); throw new Error(`[${r.status}] ${url.pathname||url} ${t.slice(0,180)}`); }
   return r.json();
 }
 async function pMap(items, limit, mapper){
@@ -364,6 +407,9 @@ async function pMap(items, limit, mapper){
   return ret;
 }
 
+// =====================
+// UI 빌드
+// =====================
 function buildCard(loc){
   const el = document.createElement('div');
   el.className = 'card';
@@ -410,16 +456,14 @@ function maxProbBetweenHourly(timesISO, probs, startISO, endISO){
     const ti = parseKST(timesISO[i]).getTime();
     const te = (i+1 < timesISO.length) ? parseKST(timesISO[i+1]).getTime() : (ti + 3600000);
     const overlap = Math.min(te, t1) > Math.max(ti, t0);
-    if(overlap){
-      const v = probs[i];
-      if(typeof v === 'number'){
-        if(mx===null || v>mx) mx = v;
-      }
-    }
+    if(overlap){ const v = probs[i]; if(typeof v === 'number'){ if(mx===null || v>mx) mx = v; } }
   }
   return mx;
 }
 
+// =====================
+// 메인: fetch & render
+// =====================
 async function fetchAndRender(){
   panels.innerHTML = '';
   window.__ALL_ROWS__ = []; // for exports
@@ -443,12 +487,8 @@ async function fetchAndRender(){
     urlAQ.searchParams.set('forecast_days', FORECAST_DAYS);
 
     let wx, aq;
-    try{
-      [wx, aq] = await Promise.all([fetchJsonOrThrow(urlWx), fetchJsonOrThrow(urlAQ)]);
-    }catch(e){
-      panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(e.message||e)+'</div></div>';
-      return;
-    }
+    try{ [wx, aq] = await Promise.all([fetchJsonOrThrow(urlWx), fetchJsonOrThrow(urlAQ)]); }
+    catch(e){ panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(e.message||e)+'</div></div>'; return; }
 
     const H = wx.hourly, D = wx.daily, AQ = aq.hourly;
     const hourlyTimes = H.time;
@@ -457,28 +497,38 @@ async function fetchAndRender(){
 
     for(let d=0; d<dailyTimes.length; d++){
       const sunsetISO = sunsetTimes ? sunsetTimes[d] : null;
-      const idx = indexNearSunset(hourlyTimes, sunsetISO);
-      let useIdx = idx;
-      if(useIdx == null){
-        const fallbackISO = dailyTimes[d] + "T18:30";
-        useIdx = indexNearSunset(hourlyTimes, fallbackISO);
-      }
-
-      const h = avgWindow(H.cloudcover_high, useIdx, AVG_WINDOW_H);
-      const m = avgWindow(H.cloudcover_mid, useIdx, AVG_WINDOW_H);
-      const l = avgWindow(H.cloudcover_low, useIdx, AVG_WINDOW_H);
-      const pm = avgWindow(AQ.pm2_5, useIdx, AVG_WINDOW_H);
-      const vis = avgWindow(H.visibility, useIdx, AVG_WINDOW_H);
-      const t2m = avgWindow(H.temperature_2m, useIdx, AVG_WINDOW_H);
-      const td  = avgWindow(H.dewpoint_2m, useIdx, AVG_WINDOW_H);
-      const clearing = hasClearing(H.cloudcover_low, H.cloudcover_mid, H.cloudcover_high, useIdx);
-
-      let sunAz = 270;
+      // 촬영 구간(골든/레드) 계산
+      let goldenStart=null, goldenEnd=null, redStart=null, redEnd=null;
       if(sunsetISO){
-        const az = solarAzimuthDeg(sunsetISO, loc.lat, loc.lon, TZ_OFFSET_HOURS);
-        if(!isNaN(az)){ sunAz = clamp(az, 200, 320); }
+        const preStart = kstAddMinutes(sunsetISO, -180);
+        const postEnd  = kstAddMinutes(sunsetISO,  120);
+        goldenStart = findAltitudeCrossing(loc.lat, loc.lon, 6,   preStart, sunsetISO, 2) || kstAddMinutes(sunsetISO, -60);
+        goldenEnd   = sunsetISO;
+        redStart    = sunsetISO;
+        redEnd      = findAltitudeCrossing(loc.lat, loc.lon, -6,  sunsetISO, postEnd, 2) || kstAddMinutes(sunsetISO, 40);
       }
 
+      // 창~붉은 전체 구간(없으면 보수적 대체)
+      const winStart = goldenStart || (dailyTimes[d] + "T17:30");
+      const winEnd   = redEnd      || (dailyTimes[d] + "T19:10");
+
+      // SunAz(일몰 기준 방위)
+      let sunAz = 270;
+      if(sunsetISO){ const az = solarAzimuthDeg(sunsetISO, loc.lat, loc.lon, TZ_OFFSET_HOURS); if(!isNaN(az)) sunAz = clamp(az, 200, 320); }
+
+      // 메인 지표: 촬영 구간 평균
+      const h = avgOverWindow(hourlyTimes, H.cloudcover_high, winStart, winEnd);
+      const m = avgOverWindow(hourlyTimes, H.cloudcover_mid,  winStart, winEnd);
+      const l = avgOverWindow(hourlyTimes, H.cloudcover_low,  winStart, winEnd);
+      const pm= avgOverWindow(AQ.time,        AQ.pm2_5,      winStart, winEnd);
+      const vis=avgOverWindow(hourlyTimes, H.visibility,     winStart, winEnd);
+      const t2m=avgOverWindow(hourlyTimes, H.temperature_2m, winStart, winEnd);
+      const td =avgOverWindow(hourlyTimes, H.dewpoint_2m,    winStart, winEnd);
+
+      // Clearing 판정(보강)
+      const clearing = sunsetISO ? computeClearing(H, sunsetISO) : false;
+
+      // Sun Window: 扇形 표본(구간 평균) → 확률 결합
       const half = WEDGE_SPREAD_DEG/2;
       const wedge = [];
       for(const R of WEDGE_RADII_KM){
@@ -489,6 +539,7 @@ async function fetchAndRender(){
           wedge.push({R, bearing, lat: dst.lat, lon: dst.lon});
         }
       }
+
       const sampleResults = await pMap(wedge, SAMPLE_CONCURRENCY, async (s) => {
         const u = new URL('https://api.open-meteo.com/v1/forecast');
         u.searchParams.set('latitude', s.lat);
@@ -499,52 +550,50 @@ async function fetchAndRender(){
         try{
           const j = await fetchJsonOrThrow(u);
           const tArr = j.hourly.time;
-          const idx2 = indexNearSunset(tArr, sunsetISO);
-          const ii = (idx2!=null)? idx2 : 0;
-          const midv = j.hourly.cloudcover_mid[ii];
-          const lowv = j.hourly.cloudcover_low[ii];
-          return {s, midv, lowv};
-        }catch(e){
-          return {s, error:true};
-        }
+          const midAvg = avgOverWindow(tArr, j.hourly.cloudcover_mid, winStart, winEnd);
+          const lowAvg = avgOverWindow(tArr, j.hourly.cloudcover_low, winStart, winEnd);
+          return {s, midAvg, lowAvg};
+        }catch(e){ return {s, error:true}; }
       });
 
       let wsum = 0, osum = 0, okCount = 0;
       for(const r of sampleResults){
         if(!r || r.error) continue;
-        const occ = clamp((0.6*r.midv + 0.4*r.lowv)/100, 0, 1);
-        const w = Math.exp(-r.s.R/50);
-        osum += occ * w;
-        wsum += w;
-        okCount++;
+        const midf = clamp((r.midAvg||0)/100, 0, 1);
+        const lowf = clamp((r.lowAvg||0)/100, 0, 1);
+        // 확률 결합: P(차단) = 1 - (1 - mid)^0.6 * (1 - low)^0.4
+        const occ = 1 - Math.pow(1-midf, 0.6) * Math.pow(1-lowf, 0.4);
+        const w = distWeight(r.s.R);
+        osum += occ * w; wsum += w; okCount++;
       }
-      let sunWindow = 0.5;
+      let sunWindowFrac = 0.5;
       if(okCount > 0 && wsum > 0){
-        const occAvg = osum/wsum;
-        sunWindow = clamp(1 - occAvg, 0, 1);
+        const occAvg = osum/wsum; // 0~1
+        sunWindowFrac = clamp(1 - occAvg, 0, 1);
       }
 
-      const {score, vis_km, ttd} = scoreOne(h, m, l, pm, vis, t2m, td, clearing, sunWindow);
-      const v = verdict(score);
+      // 점수(연속 함수) 계산
+      const vis_km = (vis || 0)/1000;
+      const ttd = (t2m - td);
+      const contrib = {
+        cloud: scoreCloudMidHigh(m, h),
+        low:   scoreLowPenalty(l),
+        pm:    scorePM25(pm),
+        vis:   scoreVisibilityKm(vis_km),
+        ttd:   scoreTTD(ttd),
+        sunwin:scoreSunWindow(sunWindowFrac),
+        clearing: clearing ? 10 : 0
+      };
+      const totalScore = Object.values(contrib).reduce((a,b)=>a+(isFinite(b)?b:0), 0);
+      const v = verdict(totalScore);
 
-      // 촬영 시간대 & 강수확률
-      let goldenStart=null, goldenEnd=null, redStart=null, redEnd=null, shootHtml="—", shootPlain="—";
-      let rainHtml="—", gProb=null, rProb=null;
+      // 촬영 시간대 & 강수확률 표시(그룹 최대)
+      let shootHtml="—", shootPlain="—", rainHtml="—", gProb=null, rProb=null;
       if(sunsetISO){
-        const preStart = kstAddMinutes(sunsetISO, -180);
-        const postEnd  = kstAddMinutes(sunsetISO,  120);
-        goldenStart = findAltitudeCrossing(loc.lat, loc.lon, 6, preStart, sunsetISO, 2);
-        const sunsetAt0 = sunsetISO;
-        redEnd     = findAltitudeCrossing(loc.lat, loc.lon, -6, sunsetAt0, postEnd, 2);
-        goldenEnd  = sunsetAt0;
-        redStart   = sunsetAt0;
-        if(!goldenStart){ goldenStart = kstAddMinutes(sunsetISO, -60); }
-        if(!redEnd){ redEnd = kstAddMinutes(sunsetISO, 40); }
         const g = `골든 ${fmtTime24KST(goldenStart)} - ${fmtTime24KST(goldenEnd)}`;
         const r = `레드 ${fmtTime24KST(redStart)} - ${fmtTime24KST(redEnd)}`;
         shootHtml = `<span class="nowrap">${g}</span><br><span class="nowrap">${r}</span>`;
         shootPlain = `${g} / ${r}`;
-
         gProb = maxProbBetweenHourly(hourlyTimes, H.precipitation_probability, goldenStart, goldenEnd);
         rProb = maxProbBetweenHourly(hourlyTimes, H.precipitation_probability, redStart, redEnd);
         const gtxt = (gProb==null? "—" : `${Math.round(gProb)}%`);
@@ -558,7 +607,7 @@ async function fetchAndRender(){
       tr.innerHTML = `
         <td>${dateFmt}</td>
         <td><span class="pill ${v.cls}">${v.text}</span></td>
-        <td class="score">${fmt(score)}</td>
+        <td class="score">${fmt(totalScore)}</td>
         <td class="sw">${shootHtml}</td>
         <td class="sw">${rainHtml}</td>
         <td class="col-optional">${fmt(h)}</td>
@@ -568,25 +617,30 @@ async function fetchAndRender(){
         <td class="col-optional">${fmt(vis_km,1)}</td>
         <td class="col-optional">${fmt(ttd,1)}</td>
         <td class="col-optional">${fmt(sunAz,0)}</td>
-        <td class="col-optional">${fmt(sunWindow*100,0)}</td>
+        <td class="col-optional">${fmt(sunWindowFrac*100,0)}</td>
         <td class="col-optional">${clearing ? 'Yes' : '—'}</td>
       `;
       tbody.appendChild(tr);
 
+      // 내보내기용 레코드(+기여도)
       window.__ALL_ROWS__.push({
-        location: loc.name, date: dateFmt, verdict: v.text, score: Number(fmt(score)),
+        location: loc.name, date: dateFmt, verdict: v.text, score: Number(fmt(totalScore)),
         shooting_window: shootPlain,
         precip_golden_max: (gProb==null? "" : Math.round(gProb)),
         precip_red_max: (rProb==null? "" : Math.round(rProb)),
         high: Number(fmt(h)), mid: Number(fmt(m)), low: Number(fmt(l)),
         pm25: Number(fmt(pm,1)), visibility_km: Number(fmt(vis_km,1)), T_minus_Td: Number(fmt(ttd,1)),
-        sunAz: Math.round(sunAz), sunWindow_percent: Math.round(sunWindow*100), clearing: (clearing ? 1 : 0)
+        sunAz: Math.round(sunAz), sunWindow_percent: Math.round(sunWindowFrac*100), clearing: (clearing ? 1 : 0),
+        ...toContribRowObj(contrib)
       });
     }
   }
 
   // CSV (UTF‑8 BOM)
-  const header = ["location","date","verdict","score","shooting_window","precip_golden_max","precip_red_max","high","mid","low","pm25","visibility_km","T_minus_Td","sunAz","sunWindow_percent","clearing"];
+  const header = [
+    "location","date","verdict","score","shooting_window","precip_golden_max","precip_red_max","high","mid","low","pm25","visibility_km","T_minus_Td","sunAz","sunWindow_percent","clearing",
+    "s_cloud","s_low","s_pm","s_vis","s_ttd","s_sunwin","s_clearing"
+  ];
   const escCSV = (v) => {
     if(v===undefined || v===null) return "";
     const s = String(v);
@@ -623,9 +677,10 @@ async function fetchAndRender(){
       {wch: 26}, // shooting_window
       {wch: 10}, // precip_golden_max
       {wch: 10}, // precip_red_max
-      {wch: 6}, {wch: 6}, {wch: 6},
-      {wch: 8},  {wch: 10}, {wch: 8},
-      {wch: 6},  {wch: 10}, {wch: 8}
+      {wch: 6}, {wch: 6}, {wch: 6}, // high/mid/low
+      {wch: 8},  {wch: 10}, {wch: 8}, // pm/vis/ttd
+      {wch: 6},  {wch: 10}, {wch: 8}, // sunAz/sunWindow/clearing
+      {wch: 8},{wch: 8},{wch: 8},{wch: 8},{wch: 8},{wch: 10},{wch: 10} // contribs
     ];
     ws['!cols'] = wscols;
     const wb = XLSX.utils.book_new();
@@ -635,24 +690,16 @@ async function fetchAndRender(){
 }
 
 // 모바일 기본 compact
-if (window.matchMedia("(max-width: 430px)").matches) {
-  document.body.classList.add('compact');
-}
+if (window.matchMedia("(max-width: 430px)").matches) { document.body.classList.add('compact'); }
 
 document.getElementById('refresh').addEventListener('click', () => {
   panels.innerHTML = '<div class="card skeleton">예보 로딩 중…</div>';
-  fetchAndRender().catch(err => {
-    panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>';
-  });
+  fetchAndRender().catch(err => { panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>'; });
 });
-document.getElementById('toggle').addEventListener('click', () => {
-  document.body.classList.toggle('compact');
-});
+document.getElementById('toggle').addEventListener('click', () => { document.body.classList.toggle('compact'); });
 
 // 초기 로드
-fetchAndRender().catch(err => {
-  panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>';
-});
+fetchAndRender().catch(err => { panels.innerHTML = '<div class="card"><div class="note err"><b>데이터 로드 중 오류</b>: '+(err.message||err)+'</div></div>'; });
 </script>
 </body>
 </html>
